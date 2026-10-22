@@ -41,7 +41,12 @@ def setup_dist(devices=(0,)):
         hostname = "localhost"
     else:
         hostname = socket.gethostbyname(socket.getfqdn())
-    os.environ["MASTER_ADDR"] = '127.0.1.1'#comm.bcast(hostname, root=0)
+    # NOTE: was hardcoded to '127.0.1.1' (a non-standard address that only
+    # resolves to localhost on some Debian/Ubuntu systems via /etc/hosts) —
+    # fixed to the actual loopback address, which hangs for the full
+    # torch.distributed connect timeout (~30 min) then fails on any machine
+    # without that specific /etc/hosts entry, including macOS.
+    os.environ["MASTER_ADDR"] = '127.0.0.1'#comm.bcast(hostname, root=0)
     os.environ["RANK"] = '0'#str(comm.rank)
     os.environ["WORLD_SIZE"] = '1'#str(comm.size)
 
