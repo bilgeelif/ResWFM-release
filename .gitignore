@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Data, checkpoints, experiment outputs — never committed
+data/
+experiments/
+inference/example_case/
+inference/example_case_output/
+inference/example_case_manifest.txt
+*.nii
+*.nii.gz
+*.pt
+*.pth
+checkpoints/
+
+.DS_Store

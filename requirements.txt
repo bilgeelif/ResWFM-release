@@ -1,0 +1,19 @@
+# Core
+torch>=2.0.0
+numpy>=1.24.0
+scipy>=1.10.0
+
+# Medical imaging I/O + wavelet transform
+nibabel>=5.0.0
+pywavelets>=1.4.0
+
+# Training & logging
+tensorboard>=2.10.0
+tqdm>=4.60.0
+
+# Distributed/file utilities (guided_diffusion/dist_util.py)
+blobfile>=2.0.0
+
+# Evaluation (SSIM); optional — evaluate_prostate.py falls back to a
+# built-in SSIM approximation if scikit-image is not installed
+scikit-image>=0.19.0

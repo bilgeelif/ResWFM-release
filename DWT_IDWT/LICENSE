@@ -1,0 +1,22 @@
+Everything in this directory (DWT_IDWT/) is licensed under the Creative
+Commons Attribution-NonCommercial-ShareAlike 4.0 International Public
+License (CC BY-NC-SA 4.0) — NOT the MIT License that covers the rest of
+this repository (see ../LICENSE).
+
+    Copyright (c) 2019, Adobe Inc. All rights reserved.
+    Licensed under CC BY-NC-SA 4.0.
+    Full legal text: https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode
+
+Scope: DWT_IDWT_Functions.py carries this notice directly (unmodified from
+its original source). DWT_IDWT_layer.py is included in this same scope
+because it is a thin wrapper around DWT_IDWT_Functions.py's autograd
+Functions and has no independent existence apart from them — it is treated
+here as part of the same licensed work rather than as separately-MIT code
+that merely imports it.
+
+Practical consequence: non-commercial use only for this component, and any
+redistributed modification of it must remain under CC BY-NC-SA 4.0 (it
+cannot be relicensed as MIT). This does not affect the MIT license on the
+rest of the repository — see /THIRD_PARTY_NOTICES.md for the full
+explanation and the option of replacing this component with a clean-room,
+permissively-licensed Haar DWT/IDWT implementation.
