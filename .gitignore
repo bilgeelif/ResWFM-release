@@ -5,6 +5,8 @@ __pycache__/
 # Data, checkpoints, experiment outputs — never committed
 data/
 experiments/
+results/
+progress.csv
 inference/example_case/
 inference/example_case_output/
 inference/example_case_manifest.txt
