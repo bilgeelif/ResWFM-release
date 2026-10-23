@@ -20,9 +20,7 @@ Three representative lesion-containing test cases (rows). From left to right: T2
 
 ### Inference efficiency
 
-All models evaluated on the same 160×160×32 benchmark; parameter
-counts reflect each model's actual training configuration, and inference
-time is the mean over test subjects.
+Inference time was measured on an NVIDIA L4 GPU and is reported as the mean per-subject time across the test set.
 
 | Model | Inference configuration | Parameters (M) | Avg. time (s/subject) |
 |---|---|---:|---:|
@@ -36,17 +34,6 @@ time is the mean over test subjects.
 † T1C-RFlow additionally uses a frozen, pretrained MAISI variational
 autoencoder (20.94M parameters) for latent encoding/decoding, not included
 in the trainable parameter count shown.
-
-WFM and ResWFM have nearly identical parameter counts and inference times —
-the manuscript reports no clear evidence of a meaningful speed difference
-between the two. Both are substantially faster than the GAN, diffusion, and
-latent-flow baselines evaluated, which reflects the efficiency of two-step
-wavelet flow matching generally, not an advantage specific to residual
-prediction. These numbers were measured once, on one hardware configuration,
-for the manuscript's benchmark; they are not a hardware-independent
-comparison, and differences in implementation, dimensionality (2D vs. 3D),
-and sampling procedure mean this table does not represent total
-computational cost on an equal footing across methods.
 
 ### Reconstruction and enhancement fidelity
 
@@ -77,8 +64,7 @@ subjects with annotated index lesions):
 These results are reported as a balanced summary, not as evidence that
 ResWFM improves every metric — see the manuscript's Results and Discussion
 sections for the complete statistical comparison, ablations, and stated
-limitations (including single-institution training data and the absence of
-cross-modality registration beyond DICOM-coordinate resampling).
+limitations.
 
 ## Installation
 
@@ -91,21 +77,6 @@ pip install -r requirements.txt
 Requires Python 3.10+, PyTorch 2.0+. A GPU is strongly recommended for
 training; inference (1–2 integration steps) is fast enough to run on CPU for
 a single case.
-
-## Model configuration
-
-This repository packages exactly one configuration: **ResWFM (Run10,
-zone-FiLM) at 160×160×32**, the 5-level UNet backbone
-(`channel_mult=1,2,2,4,4`) configured in `run_reswfm.sh`'s `COMMON_ARGS` — the
-configuration used for the manuscript's reported results. No other
-architecture depth, backbone, or component-ablation variant is included
-here.
-
-Instantiating this exact configuration measures **81,543,304 parameters**
-(verified by building the model directly from `train_wfm_prostate_run10.py`
-with `run_reswfm.sh`'s arguments), matching the manuscript's reported
-81.543M to the parameter. Of these, 4,608 parameters are the four Zone-FiLM
-modulation layers — the rest is the shared UNet backbone.
 
 ## Inference / usage
 
