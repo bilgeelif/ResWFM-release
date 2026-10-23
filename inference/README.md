@@ -1,9 +1,16 @@
 # Inference
 
+> **The inference script itself is [`../scripts/sample_wfm_prostate_run10.py`](../scripts/sample_wfm_prostate_run10.py)**,
+> not a file in this folder. This folder is documentation plus a staging
+> spot for one example case's input files — it has no code of its own.
+
 This folder exists to hold a single example case so you can smoke-test
 inference end to end. **It is intentionally empty of data right now** — the
 dataset and preprocessing pipeline are not released yet (see the main
-README's "What's not included" section).
+README's "What's not included" section). `example_case/`,
+`example_case_output/`, and the manifest file are all `.gitignore`d, so
+they only exist locally once you drop a real case in — they never appear on
+GitHub.
 
 ## Expected layout
 
