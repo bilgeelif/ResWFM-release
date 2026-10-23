@@ -57,65 +57,11 @@ Requires Python 3.10+, PyTorch 2.0+. A GPU is strongly recommended for
 training; inference (1–2 integration steps) is fast enough to run on CPU for
 a single case.
 
-## Inference and Training
+## Inference
 
-ResWFM supports model training and inference on a single subject folder or a directory of subjects using a trained model checkpoint.
-
-### Requirements
-
-Before running the pipeline, ensure that you have:
-- A trained checkpoint for inference, or a dataset prepared for training.
-- Input volumes that conform to the data format specification.
-
-Pretrained weights may be requested from the corresponding author for
-non-commercial research purposes — see
-[Data and Pretrained Weights](#data-and-pretrained-weights).
-
-Set the paths to your dataset and split manifests, and run commands from
-the repository root:
-```bash
-export RESWFM_DATA_DIR=/path/to/your/dataset
-export RESWFM_SPLIT_DIR=/path/to/your/split/manifests
-```
-
-### 1. Obtain a checkpoint
-
-Request pretrained weights from the corresponding author for non-commercial
-research purposes, or train your own with the instructions in this
-repository.
-
-### 2. Prepare input volumes
-
-Each subject is a directory containing:
-```
-<subject_dir>/
-├── T2.nii.gz
-├── ADC.nii.gz
-├── DWI.nii.gz
-├── NC_T1.nii.gz
-├── mask.nii.gz
-└── CE_T1.nii.gz    # required for training; optional at inference
-```
-- `T2.nii.gz`, `ADC.nii.gz`, `DWI.nii.gz`, and `NC_T1.nii.gz` are the
-  model's imaging inputs.
-- `mask.nii.gz` contains the prostate zonal labels: 0 = background,
-  1 = transition zone (TZ), 2 = peripheral zone (PZ).
-- `CE_T1.nii.gz` is the training target. At inference it is never passed to
-  the model; if supplied, it is used only for reference and comparison.
-- Normalize `NC_T1` and `CE_T1` using the same foreground intensity window
-  derived from `NC_T1` — never from `CE_T1`, which is unavailable at
-  inference. This is required by the residual formulation, not a
-  preprocessing convenience.
-
-Preprocessing to this exact format is not included in this repository —
-see [Data format](#data-format-expected-input-contract) for the complete
-input contract.
-
-### 3. Run inference
-
-`--data_dir` accepts either a single subject's folder or a folder
-containing multiple subjects — auto-detected from what's actually there, no
-flag needed to choose between them:
+Generate a CE-T1W prediction from a trained checkpoint and a folder of
+NIfTI inputs. No dataset split, manifest, or other dataset-specific setup
+is required for this — the two lines below are everything you need:
 
 ```bash
 python scripts/sample_wfm_prostate_run10.py \
@@ -132,17 +78,27 @@ python scripts/sample_wfm_prostate_run10.py \
     --use_new_attention_order=False --num_head_channels=-1 --num_heads_upsample=-1
 ```
 
-The same command runs one subject or a whole batch — only `--data_dir`
-changes. No test-split manifest or other dataset-specific file is required;
-`--subject_id`/`--manifest_file` exist only as optional filters for a
-multi-subject folder. See [`inference/README.md`](inference/README.md) for
-the full explanation, or use the test-manifest workflow:
+- **`--model_path`**: a trained checkpoint. Pretrained weights may be
+  requested from the corresponding author for non-commercial research
+  purposes — see [Data and Pretrained Weights](#data-and-pretrained-weights)
+  — or train your own (see [Training](#training) below).
+- **`--data_dir`**: either one subject's own folder, or a folder containing
+  several subject folders — auto-detected from what's actually there, no
+  flag needed to choose between them. The same command runs a single
+  subject or a whole batch; only this path changes. Each subject folder
+  must contain the files listed in
+  [Data format](#data-format-expected-input-contract) below.
+- `--subject_id=<ID>` / `--manifest_file=<path>` are optional filters to
+  restrict a multi-subject `--data_dir` to a subset — neither is required
+  for ordinary use.
 
-```bash
-bash run_reswfm.sh sample_test
-```
+See [`inference/README.md`](inference/README.md) for the full explanation
+of input requirements and output files.
 
-For the full training/resume/sample/eval command set:
+## Training
+
+Training needs a full dataset with train/val/test manifests, unlike
+inference above:
 
 ```bash
 export RESWFM_DATA_DIR=/path/to/your/dataset
@@ -154,6 +110,11 @@ bash run_reswfm.sh resume        # resume from the latest checkpoint
 bash run_reswfm.sh sample_test   # inference on the test manifest
 bash run_reswfm.sh eval_test     # PSNR/SSIM/MSE/MAE within the prostate mask
 ```
+
+Each subject folder must contain the files listed in
+[Data format](#data-format-expected-input-contract) below, including
+`CE_T1.nii.gz` (the training target — not optional here, unlike at
+inference). Run all commands from the repository root.
 
 ## Data format (expected input contract)
 
