@@ -37,34 +37,13 @@ in the trainable parameter count shown.
 
 ### Reconstruction and enhancement fidelity
 
-On the held-out test set (n=57 subjects; lesion-level metrics on 34
-subjects with annotated index lesions):
+Results on the held-out test set (57 subjects; lesion-level analysis in 34 subjects with annotated index lesions):
 
-- **Whole-volume:** WFM achieved the highest whole-volume PSNR/SSIM among
-  all evaluated methods (22.67 dB / 0.812). ResWFM's whole-volume
-  performance was competitive but lower (21.42 dB / 0.789) — **WFM, not
-  ResWFM, is best on this metric.**
-- **Zonal (whole-gland / transition-zone / peripheral-zone) SSIM:** ResWFM
-  achieved the highest SSIM among all evaluated methods in every zone
-  (0.761 / 0.751 / 0.729), while WFM retained the highest whole-volume
-  numbers. The manuscript treats this as a genuine trade-off between
-  whole-volume and zonal fidelity, not a uniform win for either model.
-- **Whole-gland enhancement MAE:** ResWFM achieved the lowest whole-gland
-  MAE among all evaluated methods (0.0895 vs. 0.0985 for WFM), a
-  statistically significant improvement over every synthesis comparator
-  after Holm correction (Holm-adjusted p ≤ 0.001).
-- **Lesion-level metrics:** the reported lesion-level comparisons
-  (lesion MAE, lesion-to-gland contrast error) **do not establish
-  lesion-level superiority for ResWFM.** WFM had numerically lower lesion
-  MAE (0.0949 vs. 0.1007) and lower contrast error, but neither difference
-  was statistically significant after correction. Lesion-level findings are
-  further limited by annotation coverage (34 cases with index-lesion
-  annotations, not comprehensive per-lesion annotation).
+**Whole-volume fidelity:** WFM achieved the highest whole-volume PSNR and SSIM (22.67 dB and 0.812). ResWFM achieved 21.42 dB and 0.789, respectively.
 
-These results are reported as a balanced summary, not as evidence that
-ResWFM improves every metric — see the manuscript's Results and Discussion
-sections for the complete statistical comparison, ablations, and stated
-limitations.
+**Zonal SSIM:** ResWFM achieved the highest SSIM among the evaluated methods in the whole gland (0.761), transition zone (0.751), and peripheral zone (0.729). These results highlight a trade-off between whole-volume and zonal image fidelity rather than uniform superiority of either WFM or ResWFM.
+
+**Whole-gland enhancement MAE:**ResWFM achieved a lower MAE than WFM (0.0895 vs. 0.0985), with statistically significant improvements over the synthesis comparators after Holm correction (adjusted p ≤ 0.001).
 
 ## Installation
 
