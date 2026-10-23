@@ -82,10 +82,28 @@ reproduce that result directly.
    Preprocessing to this exact format is not included in this repository
    (see [Data and pretrained weights](#data-and-pretrained-weights)).
 3. **Run inference.** `--data_dir` accepts either a single subject's folder
-   or a folder containing multiple subjects — auto-detected, no flags
-   needed to choose between them; see
-   [`inference/README.md`](inference/README.md) for the exact command, or
-   use the test-manifest workflow:
+   or a folder containing multiple subjects — auto-detected from what's
+   actually there, no flag needed to choose between them:
+   ```bash
+   python scripts/sample_wfm_prostate_run10.py \
+       --data_dir=<one subject's folder, OR a folder of subject folders> \
+       --model_path=<path to a trained checkpoint> \
+       --output_dir=results/ \
+       --sampling_steps=2 --solver=euler \
+       --dims=3 --num_channels=64 --num_res_blocks=2 --num_heads=1 \
+       --learn_sigma=False --use_scale_shift_norm=False --attention_resolutions= \
+       --channel_mult=1,2,2,4,4 --num_groups=32 --in_channels=48 --out_channels=8 \
+       --bottleneck_attention=False --resample_2d=False --additive_skips=False \
+       --use_freq=False --predict_xstart=True --image_size=160 --class_cond=False \
+       --dropout=0.0 --use_checkpoint=False --resblock_updown=True --use_fp16=False \
+       --use_new_attention_order=False --num_head_channels=-1 --num_heads_upsample=-1
+   ```
+   The same command runs one subject or a whole batch — only `--data_dir`
+   changes. No test-split manifest or other dataset-specific file is
+   required; `--subject_id`/`--manifest_file` exist only as optional
+   filters for a multi-subject folder. See
+   [`inference/README.md`](inference/README.md) for the full explanation,
+   or use the test-manifest workflow:
    ```bash
    bash run_reswfm.sh sample_test
    ```
