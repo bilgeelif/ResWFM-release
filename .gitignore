@@ -7,6 +7,7 @@ data/
 experiments/
 results/
 progress.csv
+temp/
 inference/example_case/
 inference/example_case_output/
 inference/example_case_manifest.txt

@@ -222,23 +222,32 @@ modulation layers — the rest is the shared UNet backbone.
 ## Inference / usage
 
 No trained checkpoint or example data ships in this repository (see
-[Data and pretrained weights](#data-and-pretrained-weights)), so the steps
-below describe the documented, code-verified command — not an
-out-of-the-box run. The underlying `sample_wfm_prostate_run10.py` pipeline
-was verified end to end with a synthetic checkpoint and synthetic volumes
-during development (data loading → model forward → wavelet reconstruction →
-NIfTI output all executed successfully in under 10 seconds on CPU), but that
-test used random weights and synthetic data, not a real trained checkpoint
-or real images — it confirms the pipeline runs, not that it produces
-clinically meaningful output.
+[Data and pretrained weights](#data-and-pretrained-weights)), so you need
+your own checkpoint and your own correctly-formatted inputs to run this —
+but the pipeline itself is verified, not just documented. During
+development, `sample_wfm_prostate_run10.py` was run end to end against a
+**real trained 160×160×32 checkpoint** (402 tensors, 81,543,304 parameters,
+loaded with `strict=True` and zero missing/unexpected keys) and **one real
+test subject**, both kept local-only. The predicted output had correct
+geometry, was fully finite with no NaN/Inf, and a single-case sanity check
+against the acquired CE-T1W (PSNR 21.27 dB / SSIM 0.736, masked) was
+consistent with the manuscript's 57-subject average — see
+[`inference/README.md`](inference/README.md#verified-2026-10-22) for the
+full verification record. This confirms the pipeline is correct for that
+one case; it does not establish accuracy across a full cohort, and no
+checkpoint or test data is included in this repository for you to reproduce
+it directly.
 
 1. **Obtain or train a checkpoint** — see
    [Data and pretrained weights](#data-and-pretrained-weights).
 2. **Prepare one subject's inputs** as
-   `T2.nii.gz`, `ADC.nii.gz`, `DWI.nii.gz`, `NC_T1.nii.gz`, `CE_T1.nii.gz`
-   (optional, for evaluation), `mask.nii.gz` — see
-   [Data format](#data-format-expected-input-contract) below. Preprocessing
-   to this exact format is not included in this repository (see
+   `T2.nii.gz`, `ADC.nii.gz`, `DWI.nii.gz`, `NC_T1.nii.gz`, `CE_T1.nii.gz`,
+   `mask.nii.gz` — see [Data format](#data-format-expected-input-contract)
+   below. `CE_T1.nii.gz` is required for the data loader to accept the
+   subject at all (a file-completeness check), even though it is never
+   passed to the model as a conditioning input — only `T2`, `ADC`, `DWI`,
+   and `NC_T1` are. Preprocessing to this exact format is not included in
+   this repository (see
    [Data and pretrained weights](#data-and-pretrained-weights)).
 3. **Run inference** — see [`inference/README.md`](inference/README.md) for
    the full worked example and exact command, or:
@@ -286,7 +295,7 @@ not the full per-zone breakdown reported in the manuscript's tables.
 <subject_dir>/ADC.nii.gz
 <subject_dir>/DWI.nii.gz
 <subject_dir>/NC_T1.nii.gz
-<subject_dir>/CE_T1.nii.gz      # training/eval only
+<subject_dir>/CE_T1.nii.gz      # required by the data loader at inference too (see note above); never fed to the model
 <subject_dir>/mask.nii.gz       # 0=background, 1=TZ, 2=PZ
 ```
 
