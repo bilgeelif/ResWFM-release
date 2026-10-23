@@ -57,36 +57,80 @@ Requires Python 3.10+, PyTorch 2.0+. A GPU is strongly recommended for
 training; inference (1–2 integration steps) is fast enough to run on CPU for
 a single case.
 
-## Inference / usage
+## Inference and Training
 
-No trained checkpoint or example data ships in this repository (see
-[Data and pretrained weights](#data-and-pretrained-weights)), so you need
-your own checkpoint and your own correctly-formatted inputs to run this.
-The inference pipeline itself has been exercised end-to-end against a
-trained checkpoint and a real test case external to this repository,
-producing geometrically and numerically valid output consistent with
-expected reconstruction quality — see
-[`inference/README.md`](inference/README.md) for the full workflow. This
-confirms the pipeline is correct; it does not establish accuracy across a
-full cohort, and no checkpoint or test data is included here for you to
-reproduce that result directly.
+ResWFM supports model training and inference on a single subject folder or a directory of subjects using a trained model checkpoint.
 
-1. **Obtain or train a checkpoint** — see
-   [Data and pretrained weights](#data-and-pretrained-weights).
-2. **Prepare input volumes** as `T2.nii.gz`, `ADC.nii.gz`, `DWI.nii.gz`,
-   `NC_T1.nii.gz`, `mask.nii.gz` — see
-   [Data format](#data-format-expected-input-contract) below. `CE_T1.nii.gz`
-   is optional at inference: it is never passed to the model as a
-   conditioning input (only `T2`, `ADC`, `DWI`, and `NC_T1` are), but if
-   present, a copy is saved alongside each prediction for comparison.
-   Preprocessing to this exact format is not included in this repository
-   (see [Data and pretrained weights](#data-and-pretrained-weights)).
-3. **Run inference**, on a single subject or a folder of subjects — see
-   [`inference/README.md`](inference/README.md) for both worked examples,
-   or use the test-manifest workflow:
-   ```bash
-   bash run_reswfm.sh sample_test
-   ```
+## Requirements 
+
+Before running the pipeline, ensure that you have:
+- A trained checkpoint for inference, or a dataset prepared for training.
+- Input volumes that conform to the data format specification.
+
+Pretrained weights may be requested from the corresponding author for non-commercial research purposes. See Data and Model Access.
+
+Set the paths to your dataset and split manifests:
+```
+export RESWFM_DATA_DIR=/path/to/your/dataset
+export RESWFM_SPLIT_DIR=/path/to/your/split/manifests
+```
+Run commands from the repository root.
+For inference configuration, checkpoint selection, input preparation, and single-subject or batch workflows, see inference/README.md.
+Each subject must be provided as a directory containing the following NIfTI volumes:
+```
+<subject_dir>/
+├── T2.nii.gz
+├── ADC.nii.gz
+├── DWI.nii.gz
+├── NC_T1.nii.gz
+├── mask.nii.gz
+└── CE_T1.nii.gz    # Required for training
+```
+
+Input requirements
+- T2.nii.gz, ADC.nii.gz, DWI.nii.gz, and NC_T1.nii.gz provide the model's imaging inputs.
+- mask.nii.gz contains the prostate zonal labels: 0 = background, 1 = transition zone (TZ), and 2 = peripheral zone (PZ).
+- CE_T1.nii.gz provides the target during training. At inference, it is not passed to the model; if supplied, it can be used for reference and comparison.
+- Intensity normalization: Normalize NC_T1 and CE_T1 using the same foreground intensity window derived from NC_T1. Do not derive the normalization window from CE_T1, which is unavailable at inference. This consistency is essential to the residual formulation.
+Inputs must also satisfy the spatial and dimensional requirements of the inference pipeline. Refer to inference/README.mdfor the complete input contract.
+
+The repository does not include the preprocessing pipeline that converts raw imaging data into this format.
+ResWFM was developed using an in-house prostate MRI dataset. Researchers wishing to obtain pretrained model weights for non-commercial research purposes may contact the corresponding author by email.
+The repository provides the model implementation and associated workflows. Training on an independent dataset requires appropriately prepared imaging volumes, dataset splits, and the configuration described above.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+### 1. Obtain a pretrained checkpoint
+
+Pretrained model weights may be available for non-commercial research purposes upon email request to the corresponding author.
+
+Alternatively, train a model using your own dataset and the training instructions provided in this repository.
+
+### 2. Prepare input volumes
+
+For each subject, provide the following NIfTI volumes:
+
+- `T2.nii.gz`
+- `ADC.nii.gz`
+- `DWI.nii.gz`
+- `NC_T1.nii.gz`
+- `mask.nii.gz`
+
+The optional `CE_T1.nii.gz` volume may also be provided for reference and comparison with the generated output. It is not used as a model input.
+
+Input volumes must follow the preprocessing and spatial-format requirements described in [Data Format](#data-format-expected-input-contract). Dataset-specific preprocessing is not provided in this repository.
+
+### 3. Run inference
+
+For detailed instructions, including single-subject and batch inference, see [`inference/README.md`](inference/README.md).
+
+To run inference using the test-manifest workflow:
+
+```bash
+bash run_reswfm.sh sample_test
+```
+
+Ensure that the required model checkpoint and input volumes are available at the paths specified in the inference configuration before running the pipeline.
 
 For the full training/resume/sample/eval command set:
 
@@ -117,26 +161,14 @@ window applied to both (never a window derived from CE_T1, which is
 unavailable at inference time) — this is required by the residual
 formulation, not a preprocessing convenience.
 
-## Data and pretrained weights
+## Data and Pretrained Weights
 
-- **Data.** No imaging data is distributed here. The training cohort is a
-  single-institution dataset and is not yet publicly released.
-- **Preprocessing.** The resampling/cropping/normalization pipeline that
-  turns raw DICOM/NIfTI into the model's expected input format is not
-  included in this repository. [`inference/README.md`](inference/README.md)
-  documents the *expected output* format of that pipeline so the model's
-  input contract is fully specified even without the pipeline itself.
-- **Split manifests.** Train/val/test subject-ID lists are withheld along
-  with the data they index.
-- **Trained checkpoints.** Not released yet. Once available, a checkpoint
-  trained on the 160×160×32 configuration will be published separately
-  (e.g., Zenodo or Hugging Face Hub) and linked from this README, along
-  with the exact training command used.
+- **Data:** The model was developed using an in-house prostate MRI dataset. Prepare your own dataset according to the input requirements described in [`inference/README.md`](inference/README.md).
+- **Preprocessing:** The preprocessing pipeline for converting raw imaging data into the model's expected input format is not included. Refer to [`inference/README.md`](inference/README.md) for the required input specifications.
+- **Pretrained weights:** Pretrained model weights may be requested from the corresponding author for non-commercial research purposes. Please contact the corresponding author by email for further information.
+- **Training:** To train the model on your own dataset, follow the training instructions provided in this repository.
 
-Because of the above, **inference does not work immediately after cloning**
-this repository — you need your own checkpoint (trained with
-`run_reswfm.sh train` on your own correctly-formatted data) and your own
-correctly-formatted input volumes.
+The repository provides the implementation and inference workflow. Running inference requires a trained checkpoint and input volumes that conform to the specified data format.
 
 ## Repository structure
 
