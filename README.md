@@ -1,100 +1,14 @@
 # ResWFM: Zone-Aware Residual Wavelet Flow Matching for Contrast-Enhanced Prostate MRI Synthesis
 
-## Paper
-
-> Building on our Wavelet Flow Matching (WFM) framework, we introduce ResWFM
-> for synthesis of a late-phase contrast-enhanced T1-weighted (CE-T1W) volume
-> from multimodal non-contrast prostate MRI. ResWFM predicts the enhancement
-> residual in an invertible 3D Haar wavelet domain, using pre-contrast T1W
-> (NC-T1W) as an anatomical anchor, with zone conditioning and a
-> frequency-graded, zone-weighted objective. On the held-out test set, ResWFM
-> achieved competitive whole-volume synthesis performance (21.42 dB PSNR and
-> 0.789 SSIM) and improved prostate-region fidelity (0.761 whole-gland SSIM
-> and 0.729 peripheral-zone SSIM), with a two-step inference time of 0.12 s
-> per subject.
+Building on Wavelet Flow Matching (WFM), we introduce **ResWFM**, a framework for synthesizing late-phase contrast-enhanced T1-weighted (CE-T1W) prostate MRI from multimodal non-contrast MRI. This task is challenging because enhancement depends on contrast-agent kinetics and tissue-specific vascular properties that cannot be directly observed in non-contrast images. The model must infer these signals from indirect anatomical and functional information, including subtle, spatially localized enhancement patterns. ResWFM addresses this challenge by using non-contrast T1-weighted (NC-T1W) MRI as an anatomical anchor and learning the enhancement residual in a 3D Haar wavelet domain. Zone-aware feature modulation and a frequency-graded, zone-weighted training objective further tailor the framework to prostate anatomy. On the held-out test set, ResWFM achieved a whole-volume PSNR of 21.42 dB and SSIM of 0.789, with a whole-gland SSIM of 0.761 and peripheral-zone SSIM of 0.729. Inference takes 0.12 seconds per subject using a two-step Euler solver.
 
 ## Architecture
 
 <p align="center">
-  <img src="docs/figures/reswfm_architecture.png" alt="ResWFM architecture: DWT of conditioning sequences and the whole-gland SDF, a 48-channel wavelet U-Net predicting an 8-channel velocity, Euler ODE integration, IDWT, and addition to the NC-T1W anchor." width="100%">
+  <img src="docs/figures/reswfm_architecture.png" alt="ResWFM architecture showing wavelet-domain conditioning, residual flow prediction, Euler integration, inverse wavelet reconstruction, and addition to the NC-T1W anchor." width="100%">
 </p>
 
-Non-contrast sequences (T2W, NC-T1W, ADC, DWI) and a whole-gland signed
-distance function (SDF) are transformed into the 3D Haar wavelet domain and
-concatenated with the flow state `x_t`, giving a 48-channel input to a 3D
-U-Net velocity network `f_θ` (~81.5M parameters). Starting from a **zero**
-source (`x_0 = 0`, not noise and not an averaged prior), the network's
-predicted velocity is integrated with a small number of Euler steps to reach
-the wavelet-domain endpoint `x̂_1`. An inverse DWT recovers the image-space
-residual Δ̂, which is added to the NC-T1W anchor to produce the synthesized
-volume. One-hot **Zone-FiLM** conditioning (BG / TZ / PZ) modulates encoder
-features at each of the four downsampling stages.
-
-**Why this design:**
-- **Residual, not direct, target.** The enhancement signal Δ is near zero
-  almost everywhere outside the gland. Predicting Δ instead of the full
-  CE-T1W image lets anatomy come "for free" from NC-T1W, so model capacity
-  concentrates on the actual contrast-enhancement signal rather than
-  re-deriving anatomy the network already has access to as input.
-- **Wavelet domain.** The Haar DWT both reduces spatial resolution (making
-  3D volumetric processing tractable) and places a sparse, localized signal
-  like Δ into a small number of informative subbands.
-  (`guided_diffusion/wfm_prostate_run07.py`)
-- **Zone-FiLM.** Prostate cancer detection and enhancement characteristics
-  differ by anatomical zone (background / transition zone / peripheral
-  zone). Zone-FiLM gives the network a learned per-zone feature modulation
-  at every encoder stage, rather than one global mapping applied uniformly
-  across the volume. (`guided_diffusion/zone_film.py`)
-- **Frequency-graded, zone-weighted objective.** The training loss combines
-  wavelet-domain subband weighting (graded by how many high-pass axes a
-  subband has) with zone-weighted and image-space terms, so the gradient
-  signal concentrates on the gland, its boundary, and fine enhancement
-  detail rather than being dominated by background voxels.
-  (`scripts/train_wfm_prostate_mask.py`)
-
-These are the method's design motivations, not independent per-component
-performance claims — see [Quantitative results](#quantitative-results) for
-what the experiments actually show, and the manuscript's ablation section
-for which components were isolated.
-
-**Terminology note:** ResWFM synthesizes a single **late-phase CE-T1W
-volume** — the last acquired DCE frame — not the full temporal DCE kinetic
-series, and it is not a substitute for a complete clinical DCE examination.
-
-## Motivation
-
-CE-T1W imaging provides vascular information that is central to detecting
-and characterizing prostate cancer, alongside non-contrast sequences (T2W,
-NC-T1W, DWI, ADC). Acquiring it requires a gadolinium-based contrast agent,
-which adds time and cost and carries risk in patients with renal impairment
-or concerns about repeated gadolinium exposure. This motivates synthesizing
-CE-T1W from routinely acquired non-contrast sequences.
-
-The task is difficult because contrast enhancement depends on contrast-agent
-kinetics and tissue-specific vascular properties that are not directly
-observable in non-contrast images — the model must infer enhancement from
-indirect anatomical and functional cues. Prior CE-T1W synthesis approaches
-typically predict the target image directly, requiring the network to
-simultaneously reconstruct anatomy and the much subtler, spatially localized
-enhancement signal. ResWFM instead anchors generation to NC-T1W and
-predicts only the residual, under the hypothesis that separating "anatomy
-(given)" from "enhancement (learned)" lets the model concentrate capacity on
-the harder, clinically relevant part of the problem.
-
-## Relationship to WFM
-
-ResWFM's method-level contributions — the non-contrast-anchored residual
-reframing, Zone-FiLM, the frequency-graded subband loss, and the
-zone-weighted training/evaluation pipeline — are original to this work and
-do not exist in the public WFM codebase
-(https://github.com/yalcintur/WFM), which targets unconditional BraTS
-multi-modality synthesis via a mean-of-modalities prior, not a residual
-formulation. What *is* shared is generic infrastructure (the 3D UNet
-backbone, Haar DWT/IDWT wiring, logging/dist utilities, base training-loop
-skeleton) — vendored into `guided_diffusion/`/`DWT_IDWT/` here under their
-original MIT license (see [License](#license-and-third-party-notices)).
-**This repo has no runtime dependency on the WFM repository** — everything
-needed to train, sample, and evaluate ResWFM is self-contained here.
+ResWFM transforms four conditioning modalities (T2W, NC-T1W, ADC, and DWI) and the whole-gland signed distance function (SDF) into the 3D Haar wavelet domain. These features are concatenated with the flow state x_t to form a 48-channel input to a 3D U-Net velocity network with approximately 81.5 million parameters. The flow starts from a zero source (x_0 = 0), rather than random noise or an averaged image prior as we did in WFM. Two Euler steps integrate the predicted velocity to obtain the wavelet-domain endpoint x̂_1. The inverse DWT reconstructs the predicted enhancement residual Δ̂, which is added to the NC-T1W anchor to produce the synthesized CE-T1W volume. Zone-FiLM conditions encoder features on one-hot background (BG), transition-zone (TZ), and peripheral-zone (PZ) labels at each of the four downsampling stages. This modulation is applied alongside the frequency-graded, zone-weighted training objective.
 
 ## Qualitative results
 
@@ -102,16 +16,7 @@ needed to train, sample, and evaluate ResWFM is self-contained here.
   <img src="docs/figures/reswfm_visual_results.png" alt="Qualitative comparison across three test cases. Columns left to right: T2W with lesion contour and arrow, NC-T1W, reference CE-T1W, ResWFM, WFM, AAD-DCE, DCE-Diff, Pix2Pix." width="100%">
 </p>
 
-Three representative lesion-containing test cases (rows), each showing, left
-to right: **T2W** (lesion contour in green, arrow marking the lesion),
-**NC-T1W**, the **reference (ground-truth) CE-T1W**, then CE-T1W images
-synthesized by **ResWFM**, **WFM**, **AAD-DCE**, **DCE-Diff**, and
-**Pix2Pix**. When comparing panels, look at whether gland-wide contrast
-enhancement is recovered and whether the signal pattern near the marked
-lesion resembles the reference column — these panels are illustrative
-examples, not a substitute for the quantitative evaluation below.
-
-## Quantitative results
+Three representative lesion-containing test cases (rows). From left to right: T2W (green lesion contour and arrow), NC-T1W, reference CE-T1W, and synthesized CE-T1W images from ResWFM, WFM, AAD-DCE, DCE-Diff, and Pix2Pix. The panels illustrate gland-wide enhancement patterns and signal appearance near the marked lesions relative to the reference. 
 
 ### Inference efficiency
 
