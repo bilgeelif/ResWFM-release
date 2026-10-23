@@ -74,9 +74,9 @@ def main():
         if not ds.database:
             raise ValueError(
                 f"--subject_id={args.subject_id!r} not found among the "
-                f"{n_before} subject(s) discovered in {args.data_dir} "
-                f"(single-subject mode requires data_dir/{args.subject_id}/ "
-                f"to exist with the required input files)"
+                f"{n_before} subject(s) discovered in {args.data_dir} — "
+                f"check that {args.data_dir}/{args.subject_id}/ exists with "
+                f"the required input files"
             )
 
     logger.log(f"Dataset: {len(ds)} subjects")
@@ -138,7 +138,12 @@ def main():
         # nibabel.get_fdata() (confirmed in prostateloader_run08.py), so the
         # array axis order here matches the template's affine with no
         # nibabel<->sitk transpose risk.
-        tmpl_path = os.path.join(args.data_dir, subj, "NC_T1.nii.gz")
+        # ds.subj_dirs[subj], not a reconstructed args.data_dir/subj/ path:
+        # the two supported --data_dir layouts (a single subject's own
+        # folder, or a folder of subject subfolders) put each subject's
+        # files in different places, and ProstateVolumesRun08 is the one
+        # place that already knows which applies.
+        tmpl_path = os.path.join(ds.subj_dirs[subj], "NC_T1.nii.gz")
         tmpl_nii = nib.load(tmpl_path)
 
         nib.save(nib.Nifti1Image(output_np, tmpl_nii.affine, tmpl_nii.header),
@@ -192,10 +197,9 @@ def main():
 def create_argparser():
     defaults = dict(
         seed=42,
-        data_dir="",
-        mask_dir="",
-        manifest_file="",
-        subject_id="",             # single-subject mode: run on just this one subject ID
+        data_dir="",               # a single subject's folder, OR a folder of subject subfolders (auto-detected)
+        manifest_file="",          # optional: restrict a multi-subject data_dir to these IDs (one per line)
+        subject_id="",             # optional: restrict a multi-subject data_dir to just this one ID
         model_path="",
         output_dir="./results_prostate_run10/",
         devices=[0],

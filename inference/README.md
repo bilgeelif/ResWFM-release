@@ -13,12 +13,16 @@ from this repository, and reproducing it requires your own checkpoint and
 correctly-formatted input data — neither is distributed here (see the main
 [README](../README.md#data-and-pretrained-weights)).
 
+The script works standalone against any trained checkpoint and a plain
+folder of NIfTI volumes — no test-split manifest or other dataset-specific
+file is required.
+
 ## Expected input layout
 
 Each subject is a folder of NIfTI volumes, named by subject ID:
 
 ```
-<data_dir>/<SUBJECT_ID>/
+<SUBJECT_ID>/
     T2.nii.gz
     ADC.nii.gz
     DWI.nii.gz
@@ -27,15 +31,25 @@ Each subject is a folder of NIfTI volumes, named by subject ID:
     mask.nii.gz           # prostate zone mask: 0=background, 1=TZ, 2=PZ
 ```
 
+`--data_dir` accepts either of these, auto-detected by content — nothing
+else to configure:
+
+- **one subject's own folder** (the files above directly inside it) → runs
+  on that one subject.
+- **a folder containing multiple subject folders** (the layout above,
+  repeated once per subject) → runs on every subject found inside it.
+
 `inference/example_case/` is excluded from version control (`.gitignore`)
 so no imaging data is ever committed to this repository; use it as a
-convenient local staging location, or point `--data_dir` anywhere else.
+convenient local staging location for either layout, or point `--data_dir`
+anywhere else on disk.
 
 `CE_T1.nii.gz` is **optional at inference**. It is never used as a model
 input — only `T2`, `ADC`, `DWI`, and `NC_T1` are passed to the network as
 conditioning. If present, it is used to write a `*_target_ce_t1.nii.gz`
 file alongside each prediction for comparison; if absent, inference still
-runs and only the prediction is written.
+runs and only the prediction is written. (It remains required to train a
+new checkpoint — see the main README.)
 
 All volumes must already be resampled, cropped, and normalized exactly as
 the model expects (see [Data format](../README.md#data-format-expected-input-contract)
@@ -46,13 +60,32 @@ preprocessing convenience.
 
 ## Running inference
 
-The `--channel_mult`, `--image_size`, and related architecture flags in both
-examples below must exactly match the configuration the checkpoint was
-trained with — these values are the 160×160×32 ResWFM configuration, also
-set in `run_reswfm.sh`'s `COMMON_ARGS`. The checkpoint is loaded with strict
-parameter matching: if the architecture flags don't match how the checkpoint
-was trained, loading fails with a shape-mismatch error rather than silently
-producing incorrect output.
+```bash
+python scripts/sample_wfm_prostate_run10.py \
+    --data_dir=<a subject folder, or a folder of subject folders> \
+    --model_path=<path to a trained checkpoint> \
+    --output_dir=inference/example_case_output \
+    --sampling_steps=2 \
+    --solver=euler \
+    --dims=3 --num_channels=64 --num_res_blocks=2 --num_heads=1 \
+    --learn_sigma=False --use_scale_shift_norm=False --attention_resolutions= \
+    --channel_mult=1,2,2,4,4 --num_groups=32 --in_channels=48 --out_channels=8 \
+    --bottleneck_attention=False --resample_2d=False --additive_skips=False \
+    --use_freq=False --predict_xstart=True --image_size=160 --class_cond=False \
+    --dropout=0.0 --use_checkpoint=False --resblock_updown=True --use_fp16=False \
+    --use_new_attention_order=False --num_head_channels=-1 --num_heads_upsample=-1
+```
+
+This is the entire workflow — single-subject and multi-subject batch runs
+use the exact same command; only what `--data_dir` points at changes.
+
+The `--channel_mult`, `--image_size`, and related architecture flags must
+exactly match the configuration the checkpoint was trained with — these
+values are the 160×160×32 ResWFM configuration, also set in `run_reswfm.sh`'s
+`COMMON_ARGS`. The checkpoint is loaded with strict parameter matching: if
+the architecture flags don't match how the checkpoint was trained, loading
+fails with a shape-mismatch error rather than silently producing incorrect
+output.
 
 `--sampling_steps=2 --solver=euler` is the two-step Euler configuration used
 for ResWFM's results in the manuscript. `run_reswfm.sh`'s own default is
@@ -60,54 +93,19 @@ for ResWFM's results in the manuscript. `run_reswfm.sh`'s own default is
 configuration — pass the flags explicitly to reproduce the manuscript
 setting.
 
-### Single-subject inference
+### Optional: restricting a multi-subject folder
 
-Run on exactly one subject with `--subject_id` — no manifest file needed:
+If `--data_dir` contains many subjects and you only want some of them, add
+one of:
 
-```bash
-python scripts/sample_wfm_prostate_run10.py \
-    --data_dir=inference/example_case \
-    --subject_id=<SUBJECT_ID> \
-    --model_path=<path to a trained checkpoint> \
-    --output_dir=inference/example_case_output \
-    --sampling_steps=2 \
-    --solver=euler \
-    --dims=3 --num_channels=64 --num_res_blocks=2 --num_heads=1 \
-    --learn_sigma=False --use_scale_shift_norm=False --attention_resolutions= \
-    --channel_mult=1,2,2,4,4 --num_groups=32 --in_channels=48 --out_channels=8 \
-    --bottleneck_attention=False --resample_2d=False --additive_skips=False \
-    --use_freq=False --predict_xstart=True --image_size=160 --class_cond=False \
-    --dropout=0.0 --use_checkpoint=False --resblock_updown=True --use_fp16=False \
-    --use_new_attention_order=False --num_head_channels=-1 --num_heads_upsample=-1
-```
+- `--subject_id=<SUBJECT_ID>` — run on just that one subject. Raises a
+  clear error if the ID isn't found, before loading the model.
+- `--manifest_file=<path>` — run on the subject IDs listed in a text file,
+  one per line. This is what `run_reswfm.sh sample_test` uses internally,
+  pointed at `RESWFM_DATA_DIR` and the test manifest.
 
-`<data_dir>/<SUBJECT_ID>/` must exist with the required input files. If the
-ID isn't found, the script raises a clear error before loading the model.
-
-### Folder-based (batch) inference
-
-Omit `--subject_id` to process every subject folder found under `--data_dir`:
-
-```bash
-python scripts/sample_wfm_prostate_run10.py \
-    --data_dir=/path/to/a/folder/of/subject/folders \
-    --model_path=<path to a trained checkpoint> \
-    --output_dir=inference/example_case_output \
-    --sampling_steps=2 \
-    --solver=euler \
-    --dims=3 --num_channels=64 --num_res_blocks=2 --num_heads=1 \
-    --learn_sigma=False --use_scale_shift_norm=False --attention_resolutions= \
-    --channel_mult=1,2,2,4,4 --num_groups=32 --in_channels=48 --out_channels=8 \
-    --bottleneck_attention=False --resample_2d=False --additive_skips=False \
-    --use_freq=False --predict_xstart=True --image_size=160 --class_cond=False \
-    --dropout=0.0 --use_checkpoint=False --resblock_updown=True --use_fp16=False \
-    --use_new_attention_order=False --num_head_channels=-1 --num_heads_upsample=-1
-```
-
-To run on an explicit subset instead of every subject in `--data_dir`, pass
-`--manifest_file=<path>` (one subject ID per line) in place of
-`--subject_id`. This is what `run_reswfm.sh sample_test` uses internally,
-pointed at `RESWFM_DATA_DIR` and the test manifest.
+Neither is required for ordinary use — omit both to run on everything
+`--data_dir` contains.
 
 ## Output
 

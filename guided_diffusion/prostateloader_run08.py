@@ -52,48 +52,70 @@ class ProstateVolumesRun08(torch.utils.data.Dataset):
             needs the target, so every training call site leaves this at
             its default (True); inference (sample_wfm_prostate_run10.py)
             passes False.
+
+        `directory` accepts either layout, auto-detected by content:
+          - a single subject's own folder (NC_T1.nii.gz etc. directly
+            inside it) -> one-subject dataset, subject ID = the folder's
+            basename.
+          - a folder of subject subfolders (the original layout) -> every
+            subfolder is a candidate subject, optionally filtered by
+            `manifest_file` (one subject ID per line).
+        No manifest or other dataset-specific file is required either way.
         """
         super().__init__()
         self.mode      = mode
         self.directory = os.path.expanduser(directory)
         self.database  = []
+        self.subj_dirs = {}   # subject ID -> the directory its files live in
 
-        if manifest_file is not None and os.path.isfile(manifest_file):
-            with open(manifest_file) as f:
-                subject_ids = [line.strip() for line in f if line.strip()]
-        else:
-            subject_ids = sorted(os.listdir(self.directory))
-
-        n_no_mask     = 0
         n_no_sequence = 0
-        for sid in subject_ids:
-            subj_dir = os.path.join(self.directory, sid)
-            if not os.path.isdir(subj_dir):
-                continue
 
-            datapoint = {"subj": sid}
-            complete  = True
-            for disk_name, key in _SEQ_DISK_TO_KEY.items():
-                fpath = os.path.join(subj_dir, disk_name)
-                if key == "ce_t1" and not require_target:
-                    if os.path.isfile(fpath):
-                        datapoint[key] = fpath
-                    continue  # optional: never blocks completeness
-                if not os.path.isfile(fpath):
-                    complete = False
-                    if key == "mask":
-                        n_no_mask += 1
-                    else:
-                        n_no_sequence += 1
-                    break
-                datapoint[key] = fpath
-
-            if complete:
+        if os.path.isfile(os.path.join(self.directory, "NC_T1.nii.gz")):
+            # Single-subject layout: `directory` itself holds the files.
+            sid = os.path.basename(self.directory.rstrip(os.sep)) or "subject"
+            datapoint = self._collect_datapoint(self.directory, sid, require_target)
+            if datapoint is not None:
                 self.database.append(datapoint)
+                self.subj_dirs[sid] = self.directory
+            else:
+                n_no_sequence += 1
+        else:
+            # Multi-subject layout: `directory` holds one subfolder per subject.
+            if manifest_file is not None and os.path.isfile(manifest_file):
+                with open(manifest_file) as f:
+                    subject_ids = [line.strip() for line in f if line.strip()]
+            else:
+                subject_ids = sorted(os.listdir(self.directory))
+
+            for sid in subject_ids:
+                subj_dir = os.path.join(self.directory, sid)
+                if not os.path.isdir(subj_dir):
+                    continue
+                datapoint = self._collect_datapoint(subj_dir, sid, require_target)
+                if datapoint is not None:
+                    self.database.append(datapoint)
+                    self.subj_dirs[sid] = subj_dir
+                else:
+                    n_no_sequence += 1  # approximate; see _collect_datapoint
 
         print(f"[ProstateVolumesRun08] mode={mode} | "
               f"subjects: {len(self.database)} "
-              f"(missing mask: {n_no_mask}, missing sequence: {n_no_sequence})")
+              f"(missing/incomplete: {n_no_sequence})")
+
+    @staticmethod
+    def _collect_datapoint(subj_dir: str, sid: str, require_target: bool):
+        """Build one subject's file-path dict, or None if incomplete."""
+        datapoint = {"subj": sid}
+        for disk_name, key in _SEQ_DISK_TO_KEY.items():
+            fpath = os.path.join(subj_dir, disk_name)
+            if key == "ce_t1" and not require_target:
+                if os.path.isfile(fpath):
+                    datapoint[key] = fpath
+                continue  # optional: never blocks completeness
+            if not os.path.isfile(fpath):
+                return None
+            datapoint[key] = fpath
+        return datapoint
 
     def __len__(self) -> int:
         return len(self.database)

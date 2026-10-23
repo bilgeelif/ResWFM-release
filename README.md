@@ -81,9 +81,11 @@ reproduce that result directly.
    present, a copy is saved alongside each prediction for comparison.
    Preprocessing to this exact format is not included in this repository
    (see [Data and pretrained weights](#data-and-pretrained-weights)).
-3. **Run inference**, on a single subject or a folder of subjects — see
-   [`inference/README.md`](inference/README.md) for both worked examples,
-   or use the test-manifest workflow:
+3. **Run inference.** `--data_dir` accepts either a single subject's folder
+   or a folder containing multiple subjects — auto-detected, no flags
+   needed to choose between them; see
+   [`inference/README.md`](inference/README.md) for the exact command, or
+   use the test-manifest workflow:
    ```bash
    bash run_reswfm.sh sample_test
    ```
