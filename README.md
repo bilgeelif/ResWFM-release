@@ -1,20 +1,5 @@
 # ResWFM: Zone-Aware Residual Wavelet Flow Matching for Contrast-Enhanced Prostate MRI Synthesis
 
-Reference implementation for a submission to IEEE Transactions on Medical Imaging.
-ResWFM synthesizes a late-phase contrast-enhanced T1-weighted (CE-T1W) prostate
-MRI volume from non-contrast multiparametric MRI by predicting the enhancement
-**residual** in the wavelet domain:
-
-```
-CE-T1W = NC-T1W + Δ̂,   Δ̂ = IDWT( f_θ( DWT(0), c, t ) )
-```
-
-> **Note (anonymous review):** author names and institutional references are
-> withheld below pending the outcome of double-blind review. `LICENSE` uses
-> a placeholder copyright holder for the same reason. Replace both once the
-> manuscript's authorship is no longer under review — see the `TODO` markers
-> in `LICENSE`.
-
 ## Paper
 
 > Building on our Wavelet Flow Matching (WFM) framework, we introduce ResWFM
@@ -27,8 +12,6 @@ CE-T1W = NC-T1W + Δ̂,   Δ̂ = IDWT( f_θ( DWT(0), c, t ) )
 > 0.789 SSIM) and improved prostate-region fidelity (0.761 whole-gland SSIM
 > and 0.729 peripheral-zone SSIM), with a two-step inference time of 0.12 s
 > per subject.
-
-— manuscript abstract, quoted verbatim.
 
 ## Architecture
 
