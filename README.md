@@ -57,56 +57,90 @@ Requires Python 3.10+, PyTorch 2.0+. A GPU is strongly recommended for
 training; inference (1–2 integration steps) is fast enough to run on CPU for
 a single case.
 
-## Inference / usage
+## Inference and Training
 
-No trained checkpoint or example data ships in this repository (see
-[Data and pretrained weights](#data-and-pretrained-weights)), so you need
-your own checkpoint and your own correctly-formatted inputs to run this.
-The inference pipeline itself has been exercised end-to-end against a
-trained checkpoint and a real test case external to this repository,
-producing geometrically and numerically valid output consistent with
-expected reconstruction quality — see
-[`inference/README.md`](inference/README.md) for the full workflow. This
-confirms the pipeline is correct; it does not establish accuracy across a
-full cohort, and no checkpoint or test data is included here for you to
-reproduce that result directly.
+ResWFM supports model training and inference on a single subject folder or a directory of subjects using a trained model checkpoint.
 
-1. **Obtain or train a checkpoint** — see
-   [Data and pretrained weights](#data-and-pretrained-weights).
-2. **Prepare input volumes** as `T2.nii.gz`, `ADC.nii.gz`, `DWI.nii.gz`,
-   `NC_T1.nii.gz`, `mask.nii.gz` — see
-   [Data format](#data-format-expected-input-contract) below. `CE_T1.nii.gz`
-   is optional at inference: it is never passed to the model as a
-   conditioning input (only `T2`, `ADC`, `DWI`, and `NC_T1` are), but if
-   present, a copy is saved alongside each prediction for comparison.
-   Preprocessing to this exact format is not included in this repository
-   (see [Data and pretrained weights](#data-and-pretrained-weights)).
-3. **Run inference.** `--data_dir` accepts either a single subject's folder
-   or a folder containing multiple subjects — auto-detected from what's
-   actually there, no flag needed to choose between them:
-   ```bash
-   python scripts/sample_wfm_prostate_run10.py \
-       --data_dir=<one subject's folder, OR a folder of subject folders> \
-       --model_path=<path to a trained checkpoint> \
-       --output_dir=results/ \
-       --sampling_steps=2 --solver=euler \
-       --dims=3 --num_channels=64 --num_res_blocks=2 --num_heads=1 \
-       --learn_sigma=False --use_scale_shift_norm=False --attention_resolutions= \
-       --channel_mult=1,2,2,4,4 --num_groups=32 --in_channels=48 --out_channels=8 \
-       --bottleneck_attention=False --resample_2d=False --additive_skips=False \
-       --use_freq=False --predict_xstart=True --image_size=160 --class_cond=False \
-       --dropout=0.0 --use_checkpoint=False --resblock_updown=True --use_fp16=False \
-       --use_new_attention_order=False --num_head_channels=-1 --num_heads_upsample=-1
-   ```
-   The same command runs one subject or a whole batch — only `--data_dir`
-   changes. No test-split manifest or other dataset-specific file is
-   required; `--subject_id`/`--manifest_file` exist only as optional
-   filters for a multi-subject folder. See
-   [`inference/README.md`](inference/README.md) for the full explanation,
-   or use the test-manifest workflow:
-   ```bash
-   bash run_reswfm.sh sample_test
-   ```
+### Requirements
+
+Before running the pipeline, ensure that you have:
+- A trained checkpoint for inference, or a dataset prepared for training.
+- Input volumes that conform to the data format specification.
+
+Pretrained weights may be requested from the corresponding author for
+non-commercial research purposes — see
+[Data and Pretrained Weights](#data-and-pretrained-weights).
+
+Set the paths to your dataset and split manifests, and run commands from
+the repository root:
+```bash
+export RESWFM_DATA_DIR=/path/to/your/dataset
+export RESWFM_SPLIT_DIR=/path/to/your/split/manifests
+```
+
+### 1. Obtain a checkpoint
+
+Request pretrained weights from the corresponding author for non-commercial
+research purposes, or train your own with the instructions in this
+repository.
+
+### 2. Prepare input volumes
+
+Each subject is a directory containing:
+```
+<subject_dir>/
+├── T2.nii.gz
+├── ADC.nii.gz
+├── DWI.nii.gz
+├── NC_T1.nii.gz
+├── mask.nii.gz
+└── CE_T1.nii.gz    # required for training; optional at inference
+```
+- `T2.nii.gz`, `ADC.nii.gz`, `DWI.nii.gz`, and `NC_T1.nii.gz` are the
+  model's imaging inputs.
+- `mask.nii.gz` contains the prostate zonal labels: 0 = background,
+  1 = transition zone (TZ), 2 = peripheral zone (PZ).
+- `CE_T1.nii.gz` is the training target. At inference it is never passed to
+  the model; if supplied, it is used only for reference and comparison.
+- Normalize `NC_T1` and `CE_T1` using the same foreground intensity window
+  derived from `NC_T1` — never from `CE_T1`, which is unavailable at
+  inference. This is required by the residual formulation, not a
+  preprocessing convenience.
+
+Preprocessing to this exact format is not included in this repository —
+see [Data format](#data-format-expected-input-contract) for the complete
+input contract.
+
+### 3. Run inference
+
+`--data_dir` accepts either a single subject's folder or a folder
+containing multiple subjects — auto-detected from what's actually there, no
+flag needed to choose between them:
+
+```bash
+python scripts/sample_wfm_prostate_run10.py \
+    --data_dir=<one subject's folder, OR a folder of subject folders> \
+    --model_path=<path to a trained checkpoint> \
+    --output_dir=results/ \
+    --sampling_steps=2 --solver=euler \
+    --dims=3 --num_channels=64 --num_res_blocks=2 --num_heads=1 \
+    --learn_sigma=False --use_scale_shift_norm=False --attention_resolutions= \
+    --channel_mult=1,2,2,4,4 --num_groups=32 --in_channels=48 --out_channels=8 \
+    --bottleneck_attention=False --resample_2d=False --additive_skips=False \
+    --use_freq=False --predict_xstart=True --image_size=160 --class_cond=False \
+    --dropout=0.0 --use_checkpoint=False --resblock_updown=True --use_fp16=False \
+    --use_new_attention_order=False --num_head_channels=-1 --num_heads_upsample=-1
+```
+
+The same command runs one subject or a whole batch — only `--data_dir`
+changes. No test-split manifest or other dataset-specific file is required;
+`--subject_id`/`--manifest_file` exist only as optional filters for a
+multi-subject folder. See [`inference/README.md`](inference/README.md) for
+the full explanation, or use the test-manifest workflow:
+
+```bash
+bash run_reswfm.sh sample_test
+```
 
 For the full training/resume/sample/eval command set:
 
@@ -137,26 +171,14 @@ window applied to both (never a window derived from CE_T1, which is
 unavailable at inference time) — this is required by the residual
 formulation, not a preprocessing convenience.
 
-## Data and pretrained weights
+## Data and Pretrained Weights
 
-- **Data.** No imaging data is distributed here. The training cohort is a
-  single-institution dataset and is not yet publicly released.
-- **Preprocessing.** The resampling/cropping/normalization pipeline that
-  turns raw DICOM/NIfTI into the model's expected input format is not
-  included in this repository. [`inference/README.md`](inference/README.md)
-  documents the *expected output* format of that pipeline so the model's
-  input contract is fully specified even without the pipeline itself.
-- **Split manifests.** Train/val/test subject-ID lists are withheld along
-  with the data they index.
-- **Trained checkpoints.** Not released yet. Once available, a checkpoint
-  trained on the 160×160×32 configuration will be published separately
-  (e.g., Zenodo or Hugging Face Hub) and linked from this README, along
-  with the exact training command used.
+- **Data:** The model was developed using an in-house prostate MRI dataset. Prepare your own dataset according to the input requirements described in [`inference/README.md`](inference/README.md).
+- **Preprocessing:** The preprocessing pipeline for converting raw imaging data into the model's expected input format is not included. Refer to [`inference/README.md`](inference/README.md) for the required input specifications.
+- **Pretrained weights:** Pretrained model weights may be requested from the corresponding author for non-commercial research purposes. Please contact the corresponding author by email for further information.
+- **Training:** To train the model on your own dataset, follow the training instructions provided in this repository.
 
-Because of the above, **inference does not work immediately after cloning**
-this repository — you need your own checkpoint (trained with
-`run_reswfm.sh train` on your own correctly-formatted data) and your own
-correctly-formatted input volumes.
+The repository provides the implementation and inference workflow. Running inference requires a trained checkpoint and input volumes that conform to the specified data format.
 
 ## Repository structure
 
