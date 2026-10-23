@@ -1,20 +1,21 @@
 # Inference
 
-> **The inference script itself is [`../scripts/sample_wfm_prostate_run10.py`](../scripts/sample_wfm_prostate_run10.py)**,
-> not a file in this folder. This folder is documentation plus a staging
-> spot for one example case's input files — it has no code of its own.
+> The inference script is [`../scripts/sample_wfm_prostate_run10.py`](../scripts/sample_wfm_prostate_run10.py),
+> not a file in this folder. This folder documents the inference workflow
+> and provides a staging location for one example case — it has no code of
+> its own.
 
-This folder exists to hold a single example case so you can smoke-test
-inference end to end. **It is intentionally empty of data right now** — the
-dataset and preprocessing pipeline are not released yet (see the main
-README's "What's not included" section). `example_case/`,
-`example_case_output/`, and the manifest file are all `.gitignore`d, so
-they only exist locally once you drop a real case in — they never appear on
-GitHub.
+This workflow has been exercised end-to-end against a trained checkpoint and
+a real test case external to this repository, confirming that the pipeline
+produces geometrically and numerically valid output consistent with the
+expected reconstruction. It has not been evaluated across a full test cohort
+from this repository, and reproducing it requires your own checkpoint and
+correctly-formatted input data — neither is distributed here (see the main
+[README](../README.md#data-and-pretrained-weights)).
 
-## Expected layout
+## Expected input layout
 
-Drop one de-identified, approved subject here as:
+Provide one subject as:
 
 ```
 inference/example_case/<SUBJECT_ID>/
@@ -22,27 +23,28 @@ inference/example_case/<SUBJECT_ID>/
     ADC.nii.gz
     DWI.nii.gz
     NC_T1.nii.gz
-    CE_T1.nii.gz       # see note below
-    mask.nii.gz         # prostate zone mask: 0=background, 1=TZ, 2=PZ
+    CE_T1.nii.gz
+    mask.nii.gz          # prostate zone mask: 0=background, 1=TZ, 2=PZ
 ```
 
-`CE_T1.nii.gz` must be present for `ProstateVolumesRun08` (the data loader) to
-pick the subject up at all — it performs a file-completeness check over all
-six filenames and silently skips any subject missing one. It is **not**
-passed to the model: `wfm_prostate_mask.py`'s conditioning list is
-`['t2', 'adc', 'dwi', 'nc_t1']` only, and `CE_T1` is extracted separately as
-the returned "target" value, used only to write `*_target_ce_t1.nii.gz` for
-comparison. Verified directly in the conditioning-tensor construction code,
-not assumed.
+`example_case/` is excluded from version control (`.gitignore`) so no
+imaging data is ever committed to this repository.
 
-All volumes must already be resampled/cropped/normalized exactly as the
-model expects (see "Preprocessing" in the main README — not released here,
-so for now this means: whatever pipeline you used to produce training data
-in this shape). `NC_T1`/`CE_T1` must share the same intensity normalization
-window (NC_T1's own foreground window applied to both) — this is required by
-the residual formulation (`Δ = CE_T1 − NC_T1`), not optional.
+`CE_T1.nii.gz` must be present even at inference time: the data loader
+(`ProstateVolumesRun08`) requires all six files to consider a subject
+complete. It is not used as a model input — only `T2`, `ADC`, `DWI`, and
+`NC_T1` are passed to the network as conditioning — and is used solely to
+produce a `*_target_ce_t1.nii.gz` file alongside the prediction for
+comparison.
 
-## Running inference on this one case
+All volumes must already be resampled, cropped, and normalized exactly as
+the model expects (see [Data format](../README.md#data-format-expected-input-contract)
+in the main README). `NC_T1` and `CE_T1` must share the same intensity
+normalization window — NC_T1's own foreground window applied to both — which
+the residual formulation (`Δ = CE_T1 − NC_T1`) requires, not merely a
+preprocessing convenience.
+
+## Running inference
 
 ```bash
 echo "<SUBJECT_ID>" > inference/example_case_manifest.txt
@@ -63,52 +65,36 @@ python scripts/sample_wfm_prostate_run10.py \
     --use_new_attention_order=False --num_head_channels=-1 --num_heads_upsample=-1
 ```
 
-(All the `--channel_mult=1,2,2,4,4 ...` flags must exactly match whatever
-architecture the checkpoint was trained with — these are the 160×160×32
-ResWFM defaults also baked into `run_reswfm.sh`'s `COMMON_ARGS`. If you train
-your own checkpoint with `run_reswfm.sh`, just use
-`bash run_reswfm.sh sample_test` instead of calling the script directly, and
-point `RESWFM_DATA_DIR`/the test manifest at this folder.)
+The `--channel_mult`, `--image_size`, and related architecture flags must
+exactly match the configuration the checkpoint was trained with — these
+values are the 160×160×32 ResWFM configuration, also set in
+`run_reswfm.sh`'s `COMMON_ARGS`. If you trained your own checkpoint with
+`run_reswfm.sh`, you can instead run `bash run_reswfm.sh sample_test` and
+point `RESWFM_DATA_DIR` and the test manifest at this folder.
+
+The checkpoint is loaded with strict parameter matching: if the architecture
+flags don't match how the checkpoint was trained, loading fails with a
+shape-mismatch error rather than silently producing incorrect output.
 
 `--sampling_steps=2 --solver=euler` is the two-step Euler configuration
-reported as ResWFM's headline result in the manuscript (21.42 dB PSNR,
-0.789 SSIM whole-volume, 0.12 s/subject). `run_reswfm.sh`'s own default is
-`--sampling_steps=1 --solver=heun` (a different, also-supported one-step
-configuration) — pass the flags explicitly if you want the exact
-manuscript-reported setting rather than the script's default.
+used for ResWFM's results in the manuscript. `run_reswfm.sh`'s own default
+is `--sampling_steps=1 --solver=heun`, a different, also-supported one-step
+configuration — pass the flags explicitly to reproduce the manuscript
+setting.
 
-Output: `inference/example_case_output/<SUBJECT_ID>/<SUBJECT_ID>_predicted_ce_t1.nii.gz`
-(plus `_target_ce_t1.nii.gz` if `CE_T1.nii.gz` was present) and a `timing.txt`
-with per-subject inference latency.
+## Output
 
-No trained checkpoint is bundled in this repo yet — see `CHECKPOINTS.md`.
+```
+inference/example_case_output/<SUBJECT_ID>/<SUBJECT_ID>_predicted_ce_t1.nii.gz
+inference/example_case_output/<SUBJECT_ID>/<SUBJECT_ID>_target_ce_t1.nii.gz
+inference/example_case_output/timing.txt
+```
 
-## Verified (2026-10-22)
+The predicted and target volumes share the input CE_T1 template's affine,
+header, and 160×160×32 geometry. `timing.txt` reports per-subject inference
+latency.
 
-The command above (with real paths substituted) was run end to end against
-a real trained checkpoint (`run10_zonefilm_160x160x32`, step 195000) and one
-real test subject (NUP_9), both kept local-only — not committed, not part of
-this repository. Checked, not assumed:
+## Evaluation
 
-- Architecture match: building the model with the flags above and loading
-  the checkpoint with `strict=True` succeeded with **zero missing or
-  unexpected keys** (402 tensors, 81,543,304 parameters — matching the
-  checkpoint exactly).
-- `CE_T1.nii.gz`'s role (loader-completeness requirement only, never a model
-  input) was confirmed directly in the conditioning-tensor construction code.
-- Output: correct 160×160×32 geometry, affine/spacing/orientation matching
-  the acquired reference exactly, all values finite in [0, 1], no NaN/Inf.
-- Pure model-forward time (the script's own internal timer, excluding
-  checkpoint load and data I/O): 3.82 s on CPU for this one subject.
-- Single-case sanity check against the acquired CE-T1W (not a benchmark
-  result — n=1): PSNR 21.27 dB / SSIM 0.736 (prostate-masked), consistent
-  with the manuscript's reported 57-subject whole-volume average (21.42 dB /
-  0.789 SSIM). A visual slice comparison showed the predicted volume
-  recovering the gland enhancement pattern present in the reference and
-  absent from the NC-T1W input, with residual error concentrated at tissue
-  boundaries.
-
-This confirms the pipeline is correct for **this one case** — it does not
-establish accuracy across the full test cohort, and the checkpoint used
-(step 195000) is not the checkpoint behind the manuscript's published Table
-I numbers (which used a separately selected best/final checkpoint).
+To compute PSNR/SSIM/MSE/MAE against the acquired CE-T1W, see
+[Evaluation](../README.md#evaluation) in the main README.

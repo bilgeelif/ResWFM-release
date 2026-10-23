@@ -208,7 +208,7 @@ a single case.
 
 This repository packages exactly one configuration: **ResWFM (Run10,
 zone-FiLM) at 160×160×32**, the 5-level UNet backbone
-(`channel_mult=1,2,2,4,4`) baked into `run_reswfm.sh`'s `COMMON_ARGS` — the
+(`channel_mult=1,2,2,4,4`) configured in `run_reswfm.sh`'s `COMMON_ARGS` — the
 configuration used for the manuscript's reported results. No other
 architecture depth, backbone, or component-ablation variant is included
 here.
@@ -223,20 +223,15 @@ modulation layers — the rest is the shared UNet backbone.
 
 No trained checkpoint or example data ships in this repository (see
 [Data and pretrained weights](#data-and-pretrained-weights)), so you need
-your own checkpoint and your own correctly-formatted inputs to run this —
-but the pipeline itself is verified, not just documented. During
-development, `sample_wfm_prostate_run10.py` was run end to end against a
-**real trained 160×160×32 checkpoint** (402 tensors, 81,543,304 parameters,
-loaded with `strict=True` and zero missing/unexpected keys) and **one real
-test subject**, both kept local-only. The predicted output had correct
-geometry, was fully finite with no NaN/Inf, and a single-case sanity check
-against the acquired CE-T1W (PSNR 21.27 dB / SSIM 0.736, masked) was
-consistent with the manuscript's 57-subject average — see
-[`inference/README.md`](inference/README.md#verified-2026-10-22) for the
-full verification record. This confirms the pipeline is correct for that
-one case; it does not establish accuracy across a full cohort, and no
-checkpoint or test data is included in this repository for you to reproduce
-it directly.
+your own checkpoint and your own correctly-formatted inputs to run this.
+The inference pipeline itself has been exercised end-to-end against a
+trained checkpoint and a real test case external to this repository,
+producing geometrically and numerically valid output consistent with
+expected reconstruction quality — see
+[`inference/README.md`](inference/README.md) for the full workflow. This
+confirms the pipeline is correct; it does not establish accuracy across a
+full cohort, and no checkpoint or test data is included here for you to
+reproduce that result directly.
 
 1. **Obtain or train a checkpoint** — see
    [Data and pretrained weights](#data-and-pretrained-weights).
@@ -315,8 +310,10 @@ formulation, not a preprocessing convenience.
   input contract is fully specified even without the pipeline itself.
 - **Split manifests.** Train/val/test subject-ID lists are withheld along
   with the data they index.
-- **Trained checkpoints.** Not released yet — see
-  [`CHECKPOINTS.md`](CHECKPOINTS.md) for the planned release path.
+- **Trained checkpoints.** Not released yet. Once available, a checkpoint
+  trained on the 160×160×32 configuration will be published separately
+  (e.g., Zenodo or Hugging Face Hub) and linked from this README, along
+  with the exact training command used.
 
 Because of the above, **inference does not work immediately after cloning**
 this repository — you need your own checkpoint (trained with
@@ -334,8 +331,7 @@ ResWFM-release/
 ├── inference/                 Worked single-case inference example
 ├── run_reswfm.sh              Genericized train/sample/eval driver script
 ├── requirements.txt
-├── LICENSE, THIRD_PARTY_NOTICES.md, DWT_IDWT/LICENSE
-└── CHECKPOINTS.md
+└── LICENSE, THIRD_PARTY_NOTICES.md, DWT_IDWT/LICENSE
 ```
 
 ## License and third-party notices
