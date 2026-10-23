@@ -235,22 +235,20 @@ reproduce that result directly.
 
 1. **Obtain or train a checkpoint** — see
    [Data and pretrained weights](#data-and-pretrained-weights).
-2. **Prepare one subject's inputs** as
-   `T2.nii.gz`, `ADC.nii.gz`, `DWI.nii.gz`, `NC_T1.nii.gz`, `CE_T1.nii.gz`,
-   `mask.nii.gz` — see [Data format](#data-format-expected-input-contract)
-   below. `CE_T1.nii.gz` is required for the data loader to accept the
-   subject at all (a file-completeness check), even though it is never
-   passed to the model as a conditioning input — only `T2`, `ADC`, `DWI`,
-   and `NC_T1` are. Preprocessing to this exact format is not included in
-   this repository (see
-   [Data and pretrained weights](#data-and-pretrained-weights)).
-3. **Run inference** — see [`inference/README.md`](inference/README.md) for
-   the full worked example and exact command, or:
+2. **Prepare input volumes** as `T2.nii.gz`, `ADC.nii.gz`, `DWI.nii.gz`,
+   `NC_T1.nii.gz`, `mask.nii.gz` — see
+   [Data format](#data-format-expected-input-contract) below. `CE_T1.nii.gz`
+   is optional at inference: it is never passed to the model as a
+   conditioning input (only `T2`, `ADC`, `DWI`, and `NC_T1` are), but if
+   present, a copy is saved alongside each prediction for comparison.
+   Preprocessing to this exact format is not included in this repository
+   (see [Data and pretrained weights](#data-and-pretrained-weights)).
+3. **Run inference**, on a single subject or a folder of subjects — see
+   [`inference/README.md`](inference/README.md) for both worked examples,
+   or use the test-manifest workflow:
    ```bash
-   bash run_reswfm.sh sample_test   # if using the full test-manifest workflow
+   bash run_reswfm.sh sample_test
    ```
-4. **Evaluate**, if ground-truth `CE_T1.nii.gz` is available — see
-   [Evaluation](#evaluation) below.
 
 For the full training/resume/sample/eval command set:
 
@@ -265,24 +263,6 @@ bash run_reswfm.sh sample_test   # inference on the test manifest
 bash run_reswfm.sh eval_test     # PSNR/SSIM/MSE/MAE within the prostate mask
 ```
 
-## Evaluation
-
-`scripts/evaluate_prostate_run10.py` computes PSNR, SSIM, MSE, and MAE
-between `sample_wfm_prostate_run10.py`'s predicted and target NIfTI outputs.
-With `--use_mask`, metrics are restricted to the non-zero (prostate) region,
-matching the manuscript's whole-gland evaluation:
-
-```bash
-python scripts/evaluate_prostate_run10.py \
-    --pred_dir <output_dir from sample_wfm_prostate_run10.py> \
-    --output   metrics_ce_t1_run10.txt \
-    --use_mask --verbose
-```
-
-This script is not zone-stratified (it does not separately report TZ/PZ
-metrics) — it reproduces the whole-gland-masked PSNR/SSIM/MSE/MAE numbers,
-not the full per-zone breakdown reported in the manuscript's tables.
-
 ## Data format (expected input contract)
 
 ```
@@ -290,7 +270,7 @@ not the full per-zone breakdown reported in the manuscript's tables.
 <subject_dir>/ADC.nii.gz
 <subject_dir>/DWI.nii.gz
 <subject_dir>/NC_T1.nii.gz
-<subject_dir>/CE_T1.nii.gz      # required by the data loader at inference too (see note above); never fed to the model
+<subject_dir>/CE_T1.nii.gz      # required for training; optional at inference (never fed to the model)
 <subject_dir>/mask.nii.gz       # 0=background, 1=TZ, 2=PZ
 ```
 

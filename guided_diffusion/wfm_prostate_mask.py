@@ -99,7 +99,10 @@ class WaveletFlowMatchingProstateMask:
         return t * self.num_timesteps
 
     def _get_target_and_conditions(self, x_start):
-        target     = x_start[PROSTATE_TARGET]
+        # .get(): at inference CE_T1 (the target) may be absent (see
+        # ProstateVolumesRun08's require_target=False) — training always
+        # provides it, so this is a no-op for training_losses().
+        target     = x_start.get(PROSTATE_TARGET, None)
         conditions = [x_start[m] for m in PROSTATE_CONDITIONS]
         return target, conditions
 

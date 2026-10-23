@@ -65,8 +65,20 @@ def main():
     manifest = args.manifest_file if args.manifest_file else None
     ds = ProstateVolumesRun08(
         args.data_dir,
-        mode='eval', manifest_file=manifest,
+        mode='eval', manifest_file=manifest, require_target=False,
     )
+
+    if args.subject_id:
+        n_before = len(ds.database)
+        ds.database = [d for d in ds.database if d['subj'] == args.subject_id]
+        if not ds.database:
+            raise ValueError(
+                f"--subject_id={args.subject_id!r} not found among the "
+                f"{n_before} subject(s) discovered in {args.data_dir} "
+                f"(single-subject mode requires data_dir/{args.subject_id}/ "
+                f"to exist with the required input files)"
+            )
+
     logger.log(f"Dataset: {len(ds)} subjects")
 
     dataloader = th.utils.data.DataLoader(
@@ -112,24 +124,30 @@ def main():
         all_times.append(elapsed)
 
         output_np = output_img[0, 0].cpu().numpy()
-        target_np = target[0, 0].cpu().numpy()
 
-        # Geometry from the actual CE_T1 template -- not a reconstructed
-        # affine from a --spacing constant, which had drifted stale (defaulted
-        # to the legacy 1.5x1.5x3.0mm ROI-crop spacing while training/data
-        # is actually 1.0x1.0x3.0mm; see prostate/data_analysis/README_files/
+        # Geometry from the NC_T1 template -- not a reconstructed affine from
+        # a --spacing constant, which had drifted stale (defaulted to the
+        # legacy 1.5x1.5x3.0mm ROI-crop spacing while training/data is
+        # actually 1.0x1.0x3.0mm; see prostate/data_analysis/README_files/
         # wfm_run10_data_v2_vm_commands.md). Reading the template directly
-        # can't go stale again the same way. ProstateVolumesRun08 loads via
+        # can't go stale again the same way. NC_T1 is used rather than CE_T1
+        # because CE_T1 is now optional at inference (it's the training
+        # target, not a model input) while NC_T1 is always required; every
+        # modality shares one grid centered on the NC-T1W acquisition, so
+        # this is geometrically equivalent. ProstateVolumesRun08 loads via
         # nibabel.get_fdata() (confirmed in prostateloader_run08.py), so the
         # array axis order here matches the template's affine with no
         # nibabel<->sitk transpose risk.
-        tmpl_path = os.path.join(args.data_dir, subj, "CE_T1.nii.gz")
+        tmpl_path = os.path.join(args.data_dir, subj, "NC_T1.nii.gz")
         tmpl_nii = nib.load(tmpl_path)
 
         nib.save(nib.Nifti1Image(output_np, tmpl_nii.affine, tmpl_nii.header),
                  str(out_subdir / f"{subj}_predicted_ce_t1.nii.gz"))
-        nib.save(nib.Nifti1Image(target_np, tmpl_nii.affine, tmpl_nii.header),
-                 str(out_subdir / f"{subj}_target_ce_t1.nii.gz"))
+
+        if target is not None:
+            target_np = target[0, 0].cpu().numpy()
+            nib.save(nib.Nifti1Image(target_np, tmpl_nii.affine, tmpl_nii.header),
+                     str(out_subdir / f"{subj}_target_ce_t1.nii.gz"))
 
         if (idx + 1) % 10 == 0:
             logger.log(f"Processed {idx+1} subjects | "
@@ -177,6 +195,7 @@ def create_argparser():
         data_dir="",
         mask_dir="",
         manifest_file="",
+        subject_id="",             # single-subject mode: run on just this one subject ID
         model_path="",
         output_dir="./results_prostate_run10/",
         devices=[0],

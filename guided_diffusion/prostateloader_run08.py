@@ -43,7 +43,16 @@ _SEQ_DISK_TO_KEY = {
 class ProstateVolumesRun08(torch.utils.data.Dataset):
 
     def __init__(self, directory: str, mode: str = "train",
-                 manifest_file: str = None):
+                 manifest_file: str = None, require_target: bool = True):
+        """
+        require_target: if False, a missing CE_T1.nii.gz (the training
+            target) no longer excludes a subject from the dataset — it is
+            loaded opportunistically if present (so evaluation/comparison
+            still works when available) but never required. Training always
+            needs the target, so every training call site leaves this at
+            its default (True); inference (sample_wfm_prostate_run10.py)
+            passes False.
+        """
         super().__init__()
         self.mode      = mode
         self.directory = os.path.expanduser(directory)
@@ -66,6 +75,10 @@ class ProstateVolumesRun08(torch.utils.data.Dataset):
             complete  = True
             for disk_name, key in _SEQ_DISK_TO_KEY.items():
                 fpath = os.path.join(subj_dir, disk_name)
+                if key == "ce_t1" and not require_target:
+                    if os.path.isfile(fpath):
+                        datapoint[key] = fpath
+                    continue  # optional: never blocks completeness
                 if not os.path.isfile(fpath):
                     complete = False
                     if key == "mask":
@@ -90,6 +103,8 @@ class ProstateVolumesRun08(torch.utils.data.Dataset):
 
         sample = {}
         for key in PROSTATE_SEQTYPES_RUN08:
+            if key not in d:
+                continue  # e.g. ce_t1 absent when require_target=False
             arr = nibabel.load(d[key]).get_fdata(dtype=np.float32)
             sample[key] = torch.from_numpy(arr).unsqueeze(0)   # [1, X, Y, Z]
 
