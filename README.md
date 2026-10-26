@@ -43,7 +43,7 @@ Results on the held-out test set (57 subjects; lesion-level analysis in 34 subje
 
 **Zonal SSIM:** ResWFM achieved the highest SSIM among the evaluated methods in the whole gland (0.761), transition zone (0.751), and peripheral zone (0.729). These results highlight a trade-off between whole-volume and zonal image fidelity rather than uniform superiority of either WFM or ResWFM.
 
-**Whole-gland enhancement MAE:**ResWFM achieved a lower MAE than WFM (0.0895 vs. 0.0985), with statistically significant improvements over the synthesis comparators after Holm correction (adjusted p ≤ 0.001).
+**Whole-gland enhancement MAE:** ResWFM achieved a lower MAE than WFM (0.0895 vs. 0.0985), with statistically significant improvements over the synthesis comparators after Holm correction (adjusted p ≤ 0.001).
 
 ## Installation
 
@@ -60,8 +60,7 @@ a single case.
 ## Inference
 
 Generate a CE-T1W prediction from a trained checkpoint and a folder of
-NIfTI inputs. No dataset split, manifest, or other dataset-specific setup
-is required for this — the two lines below are everything you need:
+NIfTI inputs.
 
 ```bash
 python scripts/sample_wfm_prostate_run10.py \
